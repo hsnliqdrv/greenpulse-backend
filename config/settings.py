@@ -5,6 +5,7 @@ load_dotenv()
 
 class Config:
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     GEE_PROJECT_ID = os.getenv('GEE_PROJECT_ID')
     GEE_SERVICE_ACCOUNT_KEY = os.getenv('GEE_SERVICE_ACCOUNT_KEY')
     PORT = int(os.getenv('PORT', 5000))
