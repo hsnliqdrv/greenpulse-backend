@@ -46,8 +46,34 @@ Click the "Secrets" tab (🔒 icon) in Replit and add these secrets:
 
 #### Required:
 - **Key**: `API_KEY`
-  - **Value**: Generate a secure API key for authenticating requests
+  - **Value**: A secure API key for authenticating requests (see below for generation)
 - **Key**: `GEE_PROJECT_ID`
+
+#### Generating a Secure API Key
+
+To generate a secure API key, you can use one of these methods:
+
+1. **Using Python (Recommended)**:
+   ```python
+   import secrets
+   api_key = secrets.token_urlsafe(32)
+   print(api_key)  # Copy this value to your .env file
+   ```
+
+2. **Using OpenSSL (Command Line)**:
+   ```bash
+   openssl rand -base64 32
+   ```
+
+3. **Using an Online Generator**:
+   - Visit [https://generate-secret.vercel.app/32](https://generate-secret.vercel.app/32)
+   - Or any other reputable secret key generator
+
+**Important Security Notes**:
+- Use at least 32 bytes of randomness for your API key
+- Keep your API key secret and secure
+- Don't share or commit your API key to version control
+- Rotate your API key periodically for better security
   - **Value**: Your Google Cloud Project ID (from step 1)
 
 #### Optional (for AI Assistant):
