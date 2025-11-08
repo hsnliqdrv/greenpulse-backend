@@ -2,6 +2,8 @@ import ee
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime, timedelta
 import numpy as np
+import json
+import os
 from config import Config
 
 class EarthEngineService:
@@ -11,6 +13,27 @@ class EarthEngineService:
     def initialize(self, project_id: Optional[str] = None):
         """Initialize Google Earth Engine with authentication."""
         try:
+            service_account_key = os.getenv('GEE_SERVICE_ACCOUNT_KEY')
+            
+            if service_account_key:
+                try:
+                    key_data = json.loads(service_account_key)
+                    service_account_email = key_data.get('client_email')
+                    
+                    temp_key_file = '/tmp/gee-service-account-key.json'
+                    with open(temp_key_file, 'w') as f:
+                        json.dump(key_data, f)
+                    
+                    credentials = ee.ServiceAccountCredentials(service_account_email, temp_key_file)
+                    ee.Initialize(credentials, project=project_id)
+                    
+                    print(f"Earth Engine initialized with service account: {service_account_email}")
+                    self.initialized = True
+                    return True
+                except Exception as sa_error:
+                    print(f"Service account authentication failed: {str(sa_error)}")
+                    print("Falling back to user authentication...")
+            
             if project_id:
                 ee.Initialize(project=project_id)
             else:
