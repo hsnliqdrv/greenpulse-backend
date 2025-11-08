@@ -9,7 +9,7 @@ To give farmers timely, data-driven insights about their fields including yield 
 ## Current State
 - Backend API fully implemented with Flask
 - Google Earth Engine integration for satellite imagery analysis
-- OpenAI integration for AI-powered farming recommendations
+- GROQ integration for AI-powered farming recommendations
 - RESTful API endpoints for all core features
 - Automated report generation (JSON/CSV formats)
 
@@ -21,7 +21,7 @@ To give farmers timely, data-driven insights about their fields including yield 
 - Implemented crop growth tracking with time-series analysis
 - Created disease and pest alert system using vegetation anomalies
 - Built historical field comparison functionality
-- Integrated OpenAI for smart agricultural recommendations
+- Integrated GROQ for smart agricultural recommendations
 - Added comprehensive report generation service
 - Created 9 API endpoints for all features
 
@@ -35,7 +35,7 @@ To give farmers timely, data-driven insights about their fields including yield 
    - Time-series analysis
    - Anomaly detection
 
-2. **AIAssistantService** - OpenAI integration for recommendations
+2. **AIAssistantService** - GROQ integration for recommendations
    - Context-aware agricultural advice
    - Field data interpretation
    - Query-based recommendations
@@ -59,7 +59,7 @@ To give farmers timely, data-driven insights about their fields including yield 
 ## Technologies
 - **Backend**: Flask (Python 3.11)
 - **Satellite Data**: Google Earth Engine API (Sentinel-2 imagery)
-- **AI**: OpenAI GPT-4o-mini
+- **AI**: GROQ AI (provider configurable)
 - **Data Processing**: NumPy, Pandas
 - **Image Processing**: Earth Engine (cloud-based)
 
@@ -72,15 +72,15 @@ To give farmers timely, data-driven insights about their fields including yield 
 4. Set project: `earthengine set_project YOUR_PROJECT_ID`
 5. Add `GEE_PROJECT_ID` to environment variables
 
-### OpenAI (Optional - for AI Assistant)
-1. Get API key from OpenAI platform
-2. Add `OPENAI_API_KEY` to environment variables
+### GROQ (Optional - for AI Assistant)
+1. Get API key from your GROQ provider
+2. Add `GROQ_API_KEY` (and optionally `GROQ_API_URL`) to environment variables
 
 ## Dependencies
 - flask==3.1.2
 - flask-cors==6.0.1
 - earthengine-api==1.6.15
-- openai==1.59.9
+ 
 - numpy==2.3.4
 - pandas==2.3.3
 - python-dotenv==1.2.1
@@ -91,7 +91,7 @@ None specified yet.
 ## Next Steps
 1. Set up Google Earth Engine authentication
 2. Configure GEE_PROJECT_ID environment variable
-3. (Optional) Add OPENAI_API_KEY for AI assistant features
+3. (Optional) Add GROQ_API_KEY (and optionally GROQ_API_URL) for AI assistant features
 4. Test API endpoints with real field coordinates
 5. Consider adding webhook notifications for critical alerts
 6. Implement caching layer for frequently accessed field data

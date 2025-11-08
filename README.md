@@ -20,7 +20,7 @@ Detects unusual vegetation color patterns that may indicate disease or pest risk
 Compares current season fields with past seasons to track performance improvements.
 
 ### 🤖 AI Assistant
-Provides smart recommendations and answers farmer queries based on comprehensive field analysis using OpenAI.
+Provides smart recommendations and answers farmer queries based on comprehensive field analysis using GROQ AI.
 
 ### 📋 Automated Reports
 Generates detailed field analysis reports in JSON and CSV formats for easy data export.
@@ -147,9 +147,10 @@ Content-Type: application/json
    - Authenticate: Run `earthengine authenticate` in terminal
    - This will open a browser for Google account authentication
 
-3. **OpenAI API Key** (Optional, for AI Assistant)
-   - Get API key from https://platform.openai.com
-   - Required only for `/api/ai-assistant` endpoint
+3. **GROQ API Key** (Optional, for AI Assistant)
+  - Get an API key from your GROQ provider and set `GROQ_API_KEY`.
+  - Optionally set `GROQ_API_URL` to your provider's completion endpoint.
+  - Required only for `/api/ai-assistant` endpoint
 
 ### Environment Variables
 
@@ -157,7 +158,8 @@ Create a `.env` file in the project root:
 
 ```env
 GEE_PROJECT_ID=your-google-cloud-project-id
-OPENAI_API_KEY=your-openai-api-key
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_API_URL=https://api.your-groq-provider.example/v1/complete
 PORT=5000
 DEBUG=False
 ```
@@ -197,7 +199,7 @@ greenpulse-backend/
 ├── services/
 │   ├── __init__.py
 │   ├── earth_engine_service.py # Google Earth Engine integration
-│   ├── ai_assistant_service.py # OpenAI integration
+│   ├── ai_assistant_service.py # GROQ integration
 │   └── report_service.py       # Report generation
 ├── routes/
 │   ├── __init__.py
@@ -211,7 +213,7 @@ greenpulse-backend/
 
 - **Flask**: Web framework for RESTful API
 - **Google Earth Engine**: Satellite imagery and geospatial analysis
-- **OpenAI GPT-4**: AI-powered agricultural recommendations
+ - **GROQ AI**: AI-powered agricultural recommendations
 - **NumPy & Pandas**: Data processing and analysis
 - **Sentinel-2**: High-resolution satellite imagery (accessed via Earth Engine)
 

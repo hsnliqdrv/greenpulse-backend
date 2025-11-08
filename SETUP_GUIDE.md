@@ -49,8 +49,8 @@ Click the "Secrets" tab (🔒 icon) in Replit and add these secrets:
   - **Value**: Your Google Cloud Project ID (from step 1)
 
 #### Optional (for AI Assistant):
-- **Key**: `OPENAI_API_KEY`
-  - **Value**: Your OpenAI API key from https://platform.openai.com
+- **Key**: `GROQ_API_KEY`
+  - **Value**: Your GROQ provider API key (set `GROQ_API_URL` if your provider requires a custom endpoint)
 
 ### 3. Verify Setup
 
@@ -128,11 +128,11 @@ earthengine authenticate
 
 ### AI Assistant Not Working
 
-**Cause**: OpenAI API key isn't configured (this is optional).
+**Cause**: GROQ API key isn't configured (this is optional).
 
 **Fix**: 
-1. Get an API key from https://platform.openai.com
-2. Add it to Secrets as `OPENAI_API_KEY`
+1. Get an API key from your GROQ provider (follow your provider's docs)
+2. Add it to Secrets as `GROQ_API_KEY` and optionally set `GROQ_API_URL` if required
 3. The AI assistant endpoints will then work
 
 ## Finding Agricultural Field Coordinates

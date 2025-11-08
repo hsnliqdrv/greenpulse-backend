@@ -4,7 +4,11 @@ from datetime import datetime, timedelta
 import numpy as np
 import json
 import os
+import tempfile
+import logging
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 class EarthEngineService:
     def __init__(self):
@@ -14,25 +18,35 @@ class EarthEngineService:
         """Initialize Google Earth Engine with authentication."""
         try:
             service_account_key = os.getenv('GEE_SERVICE_ACCOUNT_KEY')
-            
+
             if service_account_key:
                 try:
                     key_data = json.loads(service_account_key)
                     service_account_email = key_data.get('client_email')
-                    
-                    temp_key_file = '/tmp/gee-service-account-key.json'
-                    with open(temp_key_file, 'w') as f:
-                        json.dump(key_data, f)
-                    
-                    credentials = ee.ServiceAccountCredentials(service_account_email, temp_key_file)
-                    ee.Initialize(credentials, project=project_id)
-                    
-                    print(f"Earth Engine initialized with service account: {service_account_email}")
-                    self.initialized = True
-                    return True
+
+                    # Use a secure, cross-platform temporary file and remove it after initialization
+                    tmp_file = None
+                    try:
+                        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+                            tmp_file = f.name
+                            json.dump(key_data, f)
+
+                        credentials = ee.ServiceAccountCredentials(service_account_email, tmp_file)
+                        ee.Initialize(credentials, project=project_id)
+
+                        logger.info(f"Earth Engine initialized with service account: {service_account_email}")
+                        self.initialized = True
+                        return True
+                    finally:
+                        # Attempt to securely remove the temporary key file
+                        if tmp_file and os.path.exists(tmp_file):
+                            try:
+                                os.remove(tmp_file)
+                            except Exception:
+                                logger.warning("Could not remove temporary GEE service account key file")
                 except Exception as sa_error:
-                    print(f"Service account authentication failed: {str(sa_error)}")
-                    print("Falling back to user authentication...")
+                    logger.warning(f"Service account authentication failed: {str(sa_error)}")
+                    logger.info("Falling back to user authentication...")
             
             if project_id:
                 ee.Initialize(project=project_id)
@@ -41,7 +55,7 @@ class EarthEngineService:
             self.initialized = True
             return True
         except Exception as e:
-            print(f"Earth Engine initialization error: {str(e)}")
+            logger.error(f"Earth Engine initialization error: {str(e)}")
             return False
     
     def get_field_bounds(self, coordinates: List[List[float]]) -> ee.Geometry:
@@ -87,42 +101,78 @@ class EarthEngineService:
             ndvi_image.lt(Config.NDVI_THRESHOLDS['high'])
         )
         low_zone = ndvi_image.lt(Config.NDVI_THRESHOLDS['medium'])
-        
-        total_pixels = ee.Number(ndvi_image.reduceRegion(
-            reducer=ee.Reducer.count(),
-            geometry=geometry,
-            scale=10,
-            maxPixels=1e9
-        ).get('NDVI'))
-        
-        high_pixels = high_zone.reduceRegion(
-            reducer=ee.Reducer.sum(),
-            geometry=geometry,
-            scale=10,
-            maxPixels=1e9
-        ).get('NDVI')
-        
-        medium_pixels = medium_zone.reduceRegion(
-            reducer=ee.Reducer.sum(),
-            geometry=geometry,
-            scale=10,
-            maxPixels=1e9
-        ).get('NDVI')
-        
-        low_pixels = low_zone.reduceRegion(
-            reducer=ee.Reducer.sum(),
-            geometry=geometry,
-            scale=10,
-            maxPixels=1e9
-        ).get('NDVI')
-        
-        result = {
-            'high_productivity_percent': ee.Number(high_pixels).divide(total_pixels).multiply(100).getInfo(),
-            'medium_productivity_percent': ee.Number(medium_pixels).divide(total_pixels).multiply(100).getInfo(),
-            'low_productivity_percent': ee.Number(low_pixels).divide(total_pixels).multiply(100).getInfo()
-        }
-        
-        return result
+        try:
+            total_pixels_obj = ndvi_image.reduceRegion(
+                reducer=ee.Reducer.count(),
+                geometry=geometry,
+                scale=10,
+                maxPixels=1e9
+            ).get('NDVI')
+
+            high_pixels_obj = high_zone.reduceRegion(
+                reducer=ee.Reducer.sum(),
+                geometry=geometry,
+                scale=10,
+                maxPixels=1e9
+            ).get('NDVI')
+
+            medium_pixels_obj = medium_zone.reduceRegion(
+                reducer=ee.Reducer.sum(),
+                geometry=geometry,
+                scale=10,
+                maxPixels=1e9
+            ).get('NDVI')
+
+            low_pixels_obj = low_zone.reduceRegion(
+                reducer=ee.Reducer.sum(),
+                geometry=geometry,
+                scale=10,
+                maxPixels=1e9
+            ).get('NDVI')
+
+            # Fetch server-side values and guard against divide-by-zero / missing data
+            try:
+                total_pixels = ee.Number(total_pixels_obj).getInfo() or 0
+            except Exception:
+                total_pixels = 0
+
+            try:
+                high_pixels = ee.Number(high_pixels_obj).getInfo() or 0
+            except Exception:
+                high_pixels = 0
+
+            try:
+                medium_pixels = ee.Number(medium_pixels_obj).getInfo() or 0
+            except Exception:
+                medium_pixels = 0
+
+            try:
+                low_pixels = ee.Number(low_pixels_obj).getInfo() or 0
+            except Exception:
+                low_pixels = 0
+
+            if not total_pixels:
+                logger.warning('No valid pixels returned for productivity classification; returning zeros')
+                return {
+                    'high_productivity_percent': 0.0,
+                    'medium_productivity_percent': 0.0,
+                    'low_productivity_percent': 0.0,
+                    'note': 'no_valid_pixels'
+                }
+
+            return {
+                'high_productivity_percent': (high_pixels / total_pixels) * 100,
+                'medium_productivity_percent': (medium_pixels / total_pixels) * 100,
+                'low_productivity_percent': (low_pixels / total_pixels) * 100
+            }
+        except Exception as e:
+            logger.error(f'Error classifying productivity zones: {e}')
+            return {
+                'high_productivity_percent': 0.0,
+                'medium_productivity_percent': 0.0,
+                'low_productivity_percent': 0.0,
+                'error': str(e)
+            }
     
     def calculate_soil_moisture_index(self, image: ee.Image) -> ee.Image:
         """Calculate soil moisture index using SWIR bands."""
@@ -149,30 +199,54 @@ class EarthEngineService:
         ).getInfo()
         
         water_stress = ndmi.lt(Config.WATER_STRESS_THRESHOLD)
-        
-        total_pixels = ee.Number(ndmi.reduceRegion(
-            reducer=ee.Reducer.count(),
-            geometry=geometry,
-            scale=10,
-            maxPixels=1e9
-        ).get('NDMI'))
-        
-        stress_pixels = water_stress.reduceRegion(
-            reducer=ee.Reducer.sum(),
-            geometry=geometry,
-            scale=10,
-            maxPixels=1e9
-        ).get('NDMI')
-        
-        stress_percent = ee.Number(stress_pixels).divide(total_pixels).multiply(100).getInfo()
-        
-        return {
-            'average_moisture_index': stats.get('NDMI_mean'),
-            'min_moisture_index': stats.get('NDMI_min'),
-            'max_moisture_index': stats.get('NDMI_max'),
-            'water_stress_area_percent': stress_percent,
-            'requires_irrigation': stress_percent > 30
-        }
+        try:
+            total_pixels_obj = ndmi.reduceRegion(
+                reducer=ee.Reducer.count(),
+                geometry=geometry,
+                scale=10,
+                maxPixels=1e9
+            ).get('NDMI')
+
+            stress_pixels_obj = water_stress.reduceRegion(
+                reducer=ee.Reducer.sum(),
+                geometry=geometry,
+                scale=10,
+                maxPixels=1e9
+            ).get('NDMI')
+
+            try:
+                total_pixels = ee.Number(total_pixels_obj).getInfo() or 0
+            except Exception:
+                total_pixels = 0
+
+            try:
+                stress_pixels = ee.Number(stress_pixels_obj).getInfo() or 0
+            except Exception:
+                stress_pixels = 0
+
+            if not total_pixels:
+                logger.warning('No valid pixels returned for water stress detection; returning defaults')
+                stress_percent = 0.0
+            else:
+                stress_percent = (stress_pixels / total_pixels) * 100
+
+            return {
+                'average_moisture_index': stats.get('NDMI_mean'),
+                'min_moisture_index': stats.get('NDMI_min'),
+                'max_moisture_index': stats.get('NDMI_max'),
+                'water_stress_area_percent': stress_percent,
+                'requires_irrigation': stress_percent > 30
+            }
+        except Exception as e:
+            logger.error(f'Error detecting water stress: {e}')
+            return {
+                'average_moisture_index': stats.get('NDMI_mean'),
+                'min_moisture_index': stats.get('NDMI_min'),
+                'max_moisture_index': stats.get('NDMI_max'),
+                'water_stress_area_percent': 0.0,
+                'requires_irrigation': False,
+                'error': str(e)
+            }
     
     def get_time_series_ndvi(self, geometry: ee.Geometry, start_date: str, end_date: str, interval_days: int = 10) -> List[Dict]:
         """Get NDVI time series data for crop growth tracking."""
@@ -235,37 +309,64 @@ class EarthEngineService:
         anomaly_threshold = -Config.DISEASE_DETECTION_SENSITIVITY
         anomaly = ndvi_change.lt(anomaly_threshold)
         
-        total_pixels = ee.Number(ndvi_change.reduceRegion(
-            reducer=ee.Reducer.count(),
-            geometry=geometry,
-            scale=10,
-            maxPixels=1e9
-        ).get('NDVI'))
-        
-        anomaly_pixels = anomaly.reduceRegion(
-            reducer=ee.Reducer.sum(),
-            geometry=geometry,
-            scale=10,
-            maxPixels=1e9
-        ).get('NDVI')
-        
-        anomaly_percent = ee.Number(anomaly_pixels).divide(total_pixels).multiply(100).getInfo()
-        
-        risk_level = 'low'
-        if anomaly_percent > 15:
-            risk_level = 'high'
-        elif anomaly_percent > 5:
-            risk_level = 'medium'
-        
-        return {
-            'ndvi_change_mean': stats.get('NDVI_mean'),
-            'ndvi_change_min': stats.get('NDVI_min'),
-            'ndvi_change_max': stats.get('NDVI_max'),
-            'ndvi_change_stddev': stats.get('NDVI_stdDev'),
-            'anomaly_area_percent': anomaly_percent,
-            'risk_level': risk_level,
-            'alert': risk_level in ['medium', 'high']
-        }
+        try:
+            total_pixels_obj = ndvi_change.reduceRegion(
+                reducer=ee.Reducer.count(),
+                geometry=geometry,
+                scale=10,
+                maxPixels=1e9
+            ).get('NDVI')
+
+            anomaly_pixels_obj = anomaly.reduceRegion(
+                reducer=ee.Reducer.sum(),
+                geometry=geometry,
+                scale=10,
+                maxPixels=1e9
+            ).get('NDVI')
+
+            try:
+                total_pixels = ee.Number(total_pixels_obj).getInfo() or 0
+            except Exception:
+                total_pixels = 0
+
+            try:
+                anomaly_pixels = ee.Number(anomaly_pixels_obj).getInfo() or 0
+            except Exception:
+                anomaly_pixels = 0
+
+            if not total_pixels:
+                logger.warning('No valid pixels returned for disease detection; returning low risk')
+                anomaly_percent = 0.0
+            else:
+                anomaly_percent = (anomaly_pixels / total_pixels) * 100
+
+            risk_level = 'low'
+            if anomaly_percent > 15:
+                risk_level = 'high'
+            elif anomaly_percent > 5:
+                risk_level = 'medium'
+
+            return {
+                'ndvi_change_mean': stats.get('NDVI_mean'),
+                'ndvi_change_min': stats.get('NDVI_min'),
+                'ndvi_change_max': stats.get('NDVI_max'),
+                'ndvi_change_stddev': stats.get('NDVI_stdDev'),
+                'anomaly_area_percent': anomaly_percent,
+                'risk_level': risk_level,
+                'alert': risk_level in ['medium', 'high']
+            }
+        except Exception as e:
+            logger.error(f'Error detecting disease risk: {e}')
+            return {
+                'ndvi_change_mean': stats.get('NDVI_mean'),
+                'ndvi_change_min': stats.get('NDVI_min'),
+                'ndvi_change_max': stats.get('NDVI_max'),
+                'ndvi_change_stddev': stats.get('NDVI_stdDev'),
+                'anomaly_area_percent': 0.0,
+                'risk_level': 'low',
+                'alert': False,
+                'error': str(e)
+            }
     
     def compare_historical_seasons(self, geometry: ee.Geometry, current_start: str, current_end: str, years_back: int = 1) -> Dict:
         """Compare current season with historical data."""

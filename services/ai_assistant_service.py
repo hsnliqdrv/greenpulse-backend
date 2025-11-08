@@ -1,44 +1,103 @@
-from openai import OpenAI
+import os
+import requests
 from typing import Dict, List, Optional
 from config import Config
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class AIAssistantService:
+    """AI assistant that uses GROQ AI (configurable endpoint) or falls back to a helpful message.
+
+    Configure via environment variables:
+    - GROQ_API_KEY: the API key for GROQ.
+    - GROQ_API_URL: (optional) full URL for the GROQ text-completion endpoint. If not set, the
+      service will attempt a reasonable default but you may need to provide the correct endpoint
+      for your GROQ account.
+    """
+
     def __init__(self):
-        self.client = None
-        if Config.OPENAI_API_KEY:
-            self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
-    
+        self.client_key = Config.GROQ_API_KEY
+        self.api_url = os.getenv('GROQ_API_URL')
+
     def generate_recommendation(self, field_data: Dict, query: Optional[str] = None) -> str:
-        """Generate smart agricultural recommendations based on field data."""
-        if not self.client:
-            return "AI Assistant is not configured. Please provide OPENAI_API_KEY."
-        
-        system_prompt = """You are an expert agricultural advisor specializing in precision farming. 
-        You analyze field data from satellite imagery and provide actionable recommendations to farmers.
-        Your advice should be practical, specific, and focused on improving crop yields while optimizing 
-        resource usage."""
-        
+        """Generate smart agricultural recommendations based on field data using GROQ.
+
+        This implementation uses a simple HTTP call to a configurable GROQ endpoint. Because
+        GROQ provider SDKs and endpoints vary, set `GROQ_API_URL` if the default does not match
+        your account.
+        """
+        if not self.client_key:
+            return "AI Assistant is not configured. Please provide GROQ_API_KEY."
+
+        system_prompt = (
+            "You are an expert agricultural advisor specializing in precision farming. "
+            "You analyze field data from satellite imagery and provide actionable recommendations to farmers. "
+            "Your advice should be practical, specific, and focused on improving crop yields while optimizing resource usage."
+        )
+
         field_summary = self._prepare_field_summary(field_data)
-        
-        user_message = f"""Based on the following field analysis data:
 
-{field_summary}
+        user_message = (
+            f"Based on the following field analysis data:\n\n{field_summary}\n\n"
+            + (f"User Question: {query}" if query else "Please provide comprehensive recommendations for improving crop health and yield.")
+        )
 
-{"User Question: " + query if query else "Please provide comprehensive recommendations for improving crop health and yield."}"""
-        
+        prompt = system_prompt + "\n\n" + user_message
+
+        # Allow the environment to override the exact endpoint. If not provided, user must configure.
+        if not self.api_url:
+            logger.warning('GROQ_API_URL not set; using default placeholder endpoint. Set GROQ_API_URL to your provider endpoint for production.')
+            # A safe placeholder -- users should set GROQ_API_URL for their account
+            self.api_url = os.getenv('GROQ_API_URL', 'https://api.groq.ai/v1/complete')
+
+        headers = {
+            'Authorization': f'Bearer {self.client_key}',
+            'Content-Type': 'application/json'
+        }
+
+        payload = {
+            'prompt': prompt,
+            'max_tokens': 800,
+            'temperature': 0.7
+        }
+
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ],
-                temperature=0.7,
-                max_tokens=800
-            )
-            
-            return response.choices[0].message.content
+            resp = requests.post(self.api_url, json=payload, headers=headers, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+
+            # Try several common response shapes (choices/text, output, result)
+            if isinstance(data, dict):
+                if 'choices' in data and isinstance(data['choices'], list) and data['choices']:
+                    first = data['choices'][0]
+                    if isinstance(first, dict) and 'text' in first:
+                        return first['text']
+                    if isinstance(first, dict) and 'message' in first:
+                        # Open-style responses
+                        msg = first['message']
+                        if isinstance(msg, dict):
+                            return msg.get('content') or str(msg)
+                        return str(msg)
+
+                # Generic output key used by some providers
+                if 'output' in data:
+                    out = data['output']
+                    if isinstance(out, list):
+                        return '\n'.join(map(str, out))
+                    return str(out)
+
+                # fallback: try 'result' or 'text'
+                if 'result' in data:
+                    return str(data['result'])
+                if 'text' in data:
+                    return str(data['text'])
+
+            # If we get here, return the raw text body
+            return resp.text
         except Exception as e:
+            logger.error(f"Error calling GROQ API: {e}")
             return f"Error generating recommendation: {str(e)}"
     
     def _prepare_field_summary(self, field_data: Dict) -> str:
