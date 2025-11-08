@@ -1,82 +1,50 @@
-from typing import Dict, Optional
-from config import Config
-import requests
 from openai import OpenAI
+from typing import Dict, List, Optional
+from config import Config
 
 class AIAssistantService:
     def __init__(self):
         self.client = None
-        self.use_groq = False
-
-        # Prefer OpenAI if API key exists
         if Config.OPENAI_API_KEY:
-            try:
-                self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
-            except Exception:
-                self.client = None
-        
-        # Fallback: use Groq if configured
-        if not self.client and getattr(Config, "GROQ_API_KEY", None):
-            self.use_groq = True
-            self.groq_url = "https://api.groq.com/openai/v1/chat/completions"
-            self.groq_key = Config.GROQ_API_KEY
-
+            self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
+    
     def generate_recommendation(self, field_data: Dict, query: Optional[str] = None) -> str:
         """Generate smart agricultural recommendations based on field data."""
-        if not self.client and not self.use_groq:
-            return "AI Assistant is not configured. Please provide OPENAI_API_KEY or GROQ_API_KEY."
-
+        if not self.client:
+            return "AI Assistant is not configured. Please provide OPENAI_API_KEY."
+        
         system_prompt = """You are an expert agricultural advisor specializing in precision farming. 
         You analyze field data from satellite imagery and provide actionable recommendations to farmers.
         Your advice should be practical, specific, and focused on improving crop yields while optimizing 
         resource usage."""
-
+        
         field_summary = self._prepare_field_summary(field_data)
-
+        
         user_message = f"""Based on the following field analysis data:
 
 {field_summary}
 
 {"User Question: " + query if query else "Please provide comprehensive recommendations for improving crop health and yield."}"""
-
+        
         try:
-            # --- Use OpenAI if available ---
-            if self.client:
-                response = self.client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message}
-                    ],
-                    temperature=0.7,
-                    max_tokens=800
-                )
-                return response.choices[0].message.content
-
-            # --- Otherwise, use Groq fallback ---
-            if self.use_groq:
-                headers = {"Authorization": f"Bearer {self.groq_key}"}
-                data = {
-                    "model": "llama3-70b-8192",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message}
-                    ],
-                    "temperature": 0.7,
-                    "max_tokens": 800
-                }
-                response = requests.post(self.groq_url, headers=headers, json=data)
-                response.raise_for_status()
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.7,
+                max_tokens=800
+            )
+            
+            return response.choices[0].message.content
         except Exception as e:
             return f"Error generating recommendation: {str(e)}"
-
+    
     def _prepare_field_summary(self, field_data: Dict) -> str:
         """Prepare a readable summary of field data for the AI."""
         summary_parts = []
-
+        
         if 'yield_prediction' in field_data:
             yp = field_data['yield_prediction']
             summary_parts.append(f"""
@@ -86,7 +54,7 @@ Yield Prediction:
 - Low productivity areas: {yp.get('low_productivity_percent', 0):.1f}%
 - Average NDVI: {yp.get('ndvi_stats', {}).get('NDVI_mean', 0):.3f}
 """)
-
+        
         if 'water_stress' in field_data:
             ws = field_data['water_stress']
             summary_parts.append(f"""
@@ -95,7 +63,7 @@ Water Stress Analysis:
 - Average moisture index: {ws.get('average_moisture_index', 0):.3f}
 - Irrigation needed: {'Yes' if ws.get('requires_irrigation') else 'No'}
 """)
-
+        
         if 'disease_risk' in field_data:
             dr = field_data['disease_risk']
             summary_parts.append(f"""
@@ -105,7 +73,7 @@ Disease & Pest Risk:
 - Alert status: {'ACTIVE' if dr.get('alert') else 'None'}
 - NDVI change: {dr.get('ndvi_change_mean', 0):.3f}
 """)
-
+        
         if 'historical_comparison' in field_data:
             hc = field_data['historical_comparison']
             comp = hc.get('comparison', {})
@@ -116,7 +84,7 @@ Historical Comparison:
 - Current mean NDVI: {hc.get('current_season', {}).get('mean_ndvi', 0):.3f}
 - Historical mean NDVI: {hc.get('historical_season', {}).get('mean_ndvi', 0):.3f}
 """)
-
+        
         if 'crop_growth' in field_data:
             cg = field_data['crop_growth']
             if cg.get('time_series'):
@@ -127,6 +95,5 @@ Crop Growth Tracking:
 - Growth trend: {cg.get('trend', 'unknown')}
 - Data points collected: {len(cg.get('time_series', []))}
 """)
-
+        
         return "\n".join(summary_parts) if summary_parts else "No field data available."
-
