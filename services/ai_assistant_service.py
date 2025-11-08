@@ -50,7 +50,7 @@ class AIAssistantService:
         if not self.api_url:
             logger.warning('GROQ_API_URL not set; using default placeholder endpoint. Set GROQ_API_URL to your provider endpoint for production.')
             # Default Groq API endpoint
-            self.api_url = os.getenv('GROQ_API_URL', 'https://api.groq.com/v1/chat/completions')
+            self.api_url = os.getenv('GROQ_API_URL', 'https://api.groq.com/openai/v1/chat/completions')
 
         headers = {
             'Authorization': f'Bearer {self.client_key}',
@@ -74,9 +74,17 @@ class AIAssistantService:
         }
 
         try:
+            logger.debug(f"Making request to Groq API at: {self.api_url}")
+            logger.debug(f"Request payload: {payload}")
+            
             resp = requests.post(self.api_url, json=payload, headers=headers, timeout=30)
-            resp.raise_for_status()
+            
+            if not resp.ok:
+                logger.error(f"Groq API error: Status {resp.status_code}, Response: {resp.text}")
+                resp.raise_for_status()
+                
             data = resp.json()
+            logger.debug(f"Groq API response: {data}")
 
             # Parse Groq's response format
             if isinstance(data, dict) and 'choices' in data and len(data['choices']) > 0:
