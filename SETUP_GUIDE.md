@@ -49,10 +49,9 @@ Click the "Secrets" tab (🔒 icon) in Replit and add these secrets:
   - **Value**: Your Google Cloud Project ID (from step 1)
 
 #### Optional (for AI Assistant):
-- **Key**: `GROQ_API_KEY`
   - **Value**: Your GROQ provider API key
-- **Key**: `GROQ_MODEL` (optional)
-  - **Value**: The GROQ model to use (defaults to "llama2-70b-4096")
+ **Key**: `GROQ_MODEL` (optional)
+ **Value**: The GROQ model to use (defaults to "llama‑3.1‑8b‑instant")
 
 ### 3. Verify Setup
 

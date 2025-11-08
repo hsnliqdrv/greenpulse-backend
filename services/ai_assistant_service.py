@@ -12,7 +12,7 @@ class AIAssistantService:
 
     Configure via environment variables:
     - GROQ_API_KEY: the API key for GROQ
-    - GROQ_MODEL: the model to use (defaults to "llama2-70b-4096")
+    - GROQ_MODEL: the model to use (defaults to "llama‑3.1‑8b‑instant")
     """
 
     def __init__(self):
