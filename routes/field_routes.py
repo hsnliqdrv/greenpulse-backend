@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from services import EarthEngineService, AIAssistantService, ReportService
 from datetime import datetime, timedelta
-from app import require_api_key
+from auth import require_api_key
 
 field_bp = Blueprint('field', __name__)
 ee_service = EarthEngineService()

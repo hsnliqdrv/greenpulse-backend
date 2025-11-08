@@ -9,21 +9,7 @@ import os
 
 app = Flask(__name__)
 CORS(app)
-
-def require_api_key(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        api_key = request.headers.get('X-API-Key')
-        if not api_key:
-            return jsonify({'error': 'Missing API key'}), 401
-        
-        # Use constant-time comparison to prevent timing attacks
-        from hmac import compare_digest
-        if not compare_digest(api_key, Config.API_KEY):
-            return jsonify({'error': 'Invalid API key'}), 401
-            
-        return f(*args, **kwargs)
-    return decorated
+from auth import require_api_key
 
 # Configure Swagger UI
 swagger_config = {
