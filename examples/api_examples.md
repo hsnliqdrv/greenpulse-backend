@@ -7,9 +7,18 @@ This document provides practical examples for testing all GreenPulse API endpoin
 Before testing, ensure:
 1. Google Earth Engine is authenticated and initialized
 2. `GEE_PROJECT_ID` environment variable is set
-3. (Optional) For AI assistant features:
+3. `API_KEY` is set and you have it ready for requests
+4. (Optional) For AI assistant features:
    - `GROQ_API_KEY`: Your Groq API key
    - `GROQ_MODEL`: Your preferred Groq model (defaults to "llama2-70b-4096")
+
+## Authentication
+
+All endpoints (except `/api/health`) require an API key in the request headers:
+
+```bash
+X-API-Key: your_api_key_here
+```
 
 ## Example Field Coordinates
 
@@ -68,6 +77,7 @@ Analyzes field productivity and divides it into high/medium/low zones.
 
 ```bash
 curl -X POST http://localhost:5000/api/yield-prediction \
+  -H "X-API-Key: your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "coordinates": [
@@ -109,6 +119,7 @@ Identifies areas needing irrigation.
 
 ```bash
 curl -X POST http://localhost:5000/api/water-stress \
+  -H "X-API-Key: your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "coordinates": [
@@ -146,6 +157,7 @@ Track crop development over time.
 
 ```bash
 curl -X POST http://localhost:5000/api/crop-growth \
+  -H "X-API-Key: your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "coordinates": [
@@ -192,6 +204,7 @@ Detect vegetation anomalies indicating potential disease or pest problems.
 
 ```bash
 curl -X POST http://localhost:5000/api/disease-alert \
+  -H "X-API-Key: your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "coordinates": [
@@ -231,6 +244,7 @@ Compare current season with past years.
 
 ```bash
 curl -X POST http://localhost:5000/api/historical-comparison \
+  -H "X-API-Key: your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "coordinates": [
@@ -279,6 +293,7 @@ Get smart recommendations based on field analysis.
 
 ```bash
 curl -X POST http://localhost:5000/api/ai-assistant \
+  -H "X-API-Key: your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "field_data": {
@@ -319,6 +334,7 @@ Create exportable reports in JSON or CSV format.
 
 ```bash
 curl -X POST http://localhost:5000/api/report \
+  -H "X-API-Key: your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "field_data": {
@@ -344,6 +360,7 @@ Get comprehensive analysis with all features in one request.
 
 ```bash
 curl -X POST http://localhost:5000/api/full-analysis \
+  -H "X-API-Key: your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "coordinates": [

@@ -1,5 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flasgger import Swagger
+from functools import wraps
 from routes import field_bp
 from services import EarthEngineService
 from config import Config
@@ -7,6 +9,57 @@ import os
 
 app = Flask(__name__)
 CORS(app)
+
+def require_api_key(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        api_key = request.headers.get('X-API-Key')
+        if not api_key or api_key != Config.API_KEY:
+            return jsonify({'error': 'Invalid or missing API key'}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+# Configure Swagger UI
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": 'apispec',
+            "route": '/apispec.json',
+            "rule_filter": lambda rule: True,  # all in
+            "model_filter": lambda tag: True,  # all in
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+swagger = Swagger(app,
+    config=swagger_config,
+    template={
+        "swagger": "2.0",
+        "info": {
+            "title": "GreenPulse API",
+            "description": "Real-time insights and recommendations for farmers using Google Earth Engine",
+            "version": "1.0.0",
+            "contact": {
+                "email": "support@greenpulse.ai"
+            }
+        },
+        "basePath": "/api",
+        "schemes": [
+            "http",
+            "https"
+        ],
+        "securityDefinitions": {
+            "ApiKeyAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-API-Key"
+            }
+        }
+    })
 
 ee_service = EarthEngineService()
 

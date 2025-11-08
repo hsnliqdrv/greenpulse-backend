@@ -45,6 +45,8 @@ This will:
 Click the "Secrets" tab (🔒 icon) in Replit and add these secrets:
 
 #### Required:
+- **Key**: `API_KEY`
+  - **Value**: Generate a secure API key for authenticating requests
 - **Key**: `GEE_PROJECT_ID`
   - **Value**: Your Google Cloud Project ID (from step 1)
 
@@ -149,6 +151,22 @@ Or use [geojson.io](https://geojson.io):
 1. Draw a polygon around your field
 2. Copy the coordinates from the JSON output
 3. Format as needed for the API
+
+## Using the API Key
+
+All API endpoints (except `/api/health`) require authentication using an API key. Include your API key in the request headers:
+
+```bash
+X-API-Key: your_api_key_here
+```
+
+Example using curl:
+```bash
+curl -X POST http://localhost:5000/api/yield-prediction \
+  -H "X-API-Key: your_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{"coordinates": [[...]]}'
+```
 
 ## Next Steps
 

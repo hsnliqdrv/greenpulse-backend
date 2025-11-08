@@ -6,3 +6,4 @@ pandas==2.3.3
 python-dotenv==1.2.1
 requests>=2.31.0
 groq>=0.4.6
+flasgger>=0.9.7
