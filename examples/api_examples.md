@@ -7,7 +7,9 @@ This document provides practical examples for testing all GreenPulse API endpoin
 Before testing, ensure:
 1. Google Earth Engine is authenticated and initialized
 2. `GEE_PROJECT_ID` environment variable is set
-3. (Optional) `GROQ_API_KEY` (and optionally `GROQ_API_URL`) is set for AI assistant features
+3. (Optional) For AI assistant features:
+   - `GROQ_API_KEY`: Your Groq API key
+   - `GROQ_MODEL`: Your preferred Groq model (defaults to "llama2-70b-4096")
 
 ## Example Field Coordinates
 

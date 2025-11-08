@@ -50,7 +50,9 @@ Click the "Secrets" tab (🔒 icon) in Replit and add these secrets:
 
 #### Optional (for AI Assistant):
 - **Key**: `GROQ_API_KEY`
-  - **Value**: Your GROQ provider API key (set `GROQ_API_URL` if your provider requires a custom endpoint)
+  - **Value**: Your GROQ provider API key
+- **Key**: `GROQ_MODEL` (optional)
+  - **Value**: The GROQ model to use (defaults to "llama2-70b-4096")
 
 ### 3. Verify Setup
 

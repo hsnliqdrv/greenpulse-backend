@@ -1,6 +1,6 @@
 import os
-import requests
-from typing import Dict, List, Optional
+from typing import Dict, Optional
+import groq
 from config import Config
 import logging
 
@@ -8,27 +8,23 @@ logger = logging.getLogger(__name__)
 
 
 class AIAssistantService:
-    """AI assistant that uses GROQ AI (configurable endpoint) or falls back to a helpful message.
+    """AI assistant that uses GROQ AI or falls back to a helpful message.
 
     Configure via environment variables:
-    - GROQ_API_KEY: the API key for GROQ.
-    - GROQ_API_URL: (optional) full URL for the GROQ text-completion endpoint. If not set, the
-      service will attempt a reasonable default but you may need to provide the correct endpoint
-      for your GROQ account.
+    - GROQ_API_KEY: the API key for GROQ
+    - GROQ_MODEL: the model to use (defaults to "llama2-70b-4096")
     """
 
     def __init__(self):
-        self.client_key = Config.GROQ_API_KEY
-        self.api_url = os.getenv('GROQ_API_URL')
+        self.client = groq.Client(api_key=Config.GROQ_API_KEY)
+        self.model = Config.GROQ_MODEL
 
     def generate_recommendation(self, field_data: Dict, query: Optional[str] = None) -> str:
         """Generate smart agricultural recommendations based on field data using GROQ.
-
-        This implementation uses a simple HTTP call to a configurable GROQ endpoint. Because
-        GROQ provider SDKs and endpoints vary, set `GROQ_API_URL` if the default does not match
-        your account.
+        
+        Uses the official Groq Python client library to make API calls.
         """
-        if not self.client_key:
+        if not self.client:
             return "AI Assistant is not configured. Please provide GROQ_API_KEY."
 
         system_prompt = (
@@ -44,57 +40,33 @@ class AIAssistantService:
             + (f"User Question: {query}" if query else "Please provide comprehensive recommendations for improving crop health and yield.")
         )
 
-        prompt = system_prompt + "\n\n" + user_message
-
-        # Allow the environment to override the exact endpoint. If not provided, user must configure.
-        if not self.api_url:
-            logger.warning('GROQ_API_URL not set; using default placeholder endpoint. Set GROQ_API_URL to your provider endpoint for production.')
-            # Default Groq API endpoint
-            self.api_url = os.getenv('GROQ_API_URL', 'https://api.groq.com/openai/v1/chat/completions')
-
-        headers = {
-            'Authorization': f'Bearer {self.client_key}',
-            'Content-Type': 'application/json'
-        }
-
-        payload = {
-            'model': 'llama2-70b-4096',  # or your preferred Groq model
-            'messages': [
-                {
-                    'role': 'system',
-                    'content': system_prompt
-                },
-                {
-                    'role': 'user',
-                    'content': user_message
-                }
-            ],
-            'max_tokens': 800,
-            'temperature': 0.7
-        }
-
         try:
-            logger.debug(f"Making request to Groq API at: {self.api_url}")
-            logger.debug(f"Request payload: {payload}")
+            logger.debug("Making request to Groq API")
             
-            resp = requests.post(self.api_url, json=payload, headers=headers, timeout=30)
+            # Using the official Groq client library
+            chat_completion = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": user_message
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=800
+            )
             
-            if not resp.ok:
-                logger.error(f"Groq API error: Status {resp.status_code}, Response: {resp.text}")
-                resp.raise_for_status()
+            logger.debug(f"Groq API response received")
+            
+            # Get the response content
+            if chat_completion.choices and len(chat_completion.choices) > 0:
+                return chat_completion.choices[0].message.content
                 
-            data = resp.json()
-            logger.debug(f"Groq API response: {data}")
-
-            # Parse Groq's response format
-            if isinstance(data, dict) and 'choices' in data and len(data['choices']) > 0:
-                message = data['choices'][0].get('message', {})
-                if isinstance(message, dict) and 'content' in message:
-                    return message['content']
-            
-            # If we can't parse the response in the expected format, return the raw response
-            logger.warning("Unexpected response format from Groq API")
-            return resp.text
+            return "No response generated from the AI model."
             return resp.text
         except Exception as e:
             logger.error(f"Error calling GROQ API: {e}")
