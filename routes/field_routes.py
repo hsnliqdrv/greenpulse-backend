@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from services import EarthEngineService, AIAssistantService, ReportService
 from datetime import datetime, timedelta
 from auth import require_api_key
+from flasgger import swag_from
 
 MAP_CACHE = {}
 TOKEN_LIFETIME_HOURS = 1
@@ -31,6 +32,21 @@ report_service = ReportService()
 
 
 @field_bp.route('/health', methods=['GET'])
+@swag_from({
+    'tags': ['Health'],
+    'responses': {
+        200: {
+            'description': 'Service health status',
+            'examples': {
+                'application/json': {
+                    'status': 'healthy',
+                    'service': 'GreenPulse Backend',
+                    'earth_engine_initialized': True
+                }
+            }
+        }
+    }
+})
 def health_check():
     app_ee_service = current_app.config.get('ee_service')
     is_initialized = app_ee_service.initialized if app_ee_service else ee_service.initialized
@@ -42,30 +58,22 @@ def health_check():
 
 
 def _generate_map_url(field_id, map_type, coordinates, image_func, vis):
-    """
-    Generate a map tile URL with Earth Engine mapid and optional token.
-    Returns only the URL string.
-    """
     cached = get_cached_map(field_id, map_type)
     if cached:
         mapid = cached['mapid']
         token = cached.get('token')
-        if token:
-            return f"https://earthengine.googleapis.com/map/{mapid}/{{z}}/{{x}}/{{y}}?token={token}"
-        else:
-            return f"https://earthengine.googleapis.com/map/{mapid}/{{z}}/{{x}}/{{y}}"
+        base_url = f"https://earthengine.googleapis.com/v1alpha/projects/greenpulse-backend/maps/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
+        return f"{base_url}?token={token}" if token else base_url
 
     geometry = ee_service.get_field_bounds(coordinates)
     image = image_func(geometry)
     map_id = image.getMapId(vis)
-    cache_map(field_id, map_type, map_id['mapid'], map_id.get('token'))
-
     mapid = map_id['mapid']
     token = map_id.get('token')
-    if token:
-        return f"https://earthengine.googleapis.com/map/{mapid}/{{z}}/{{x}}/{{y}}?token={token}"
-    else:
-        return f"https://earthengine.googleapis.com/map/{mapid}/{{z}}/{{x}}/{{y}}"
+    cache_map(field_id, map_type, mapid, token)
+
+    base_url = f"https://earthengine.googleapis.com/v1alpha/projects/greenpulse-backend/maps/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
+    return f"{base_url}?token={token}" if token else base_url
 
 
 def _default_dates():
@@ -76,6 +84,36 @@ def _default_dates():
 
 @field_bp.route('/yield-prediction', methods=['POST'])
 @require_api_key
+@swag_from({
+    'tags': ['Maps'],
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'coordinates': {'type': 'array', 'items': {'type': 'array'}},
+                    'field_id': {'type': 'string'}
+                },
+                'required': ['coordinates']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'NDVI yield prediction map URL',
+            'examples': {
+                'application/json': {
+                    'tile_url': 'https://earthengine.googleapis.com/v1alpha/projects/.../tiles/{z}/{x}/{y}?token=XYZ',
+                    'description': '🌾 NDVI map: low (red), medium (yellow), high (green) productivity zones.'
+                }
+            }
+        },
+        400: {'description': 'Coordinates are required'}
+    }
+})
 def yield_prediction_map():
     data = request.json
     coordinates = data.get('coordinates')
@@ -99,6 +137,16 @@ def yield_prediction_map():
 
 @field_bp.route('/water-stress', methods=['POST'])
 @require_api_key
+@swag_from({
+    'tags': ['Maps'],
+    'parameters': [
+        {'name': 'body', 'in': 'body', 'required': True, 'schema': {'type': 'object', 'properties': {'coordinates': {'type': 'array'}, 'field_id': {'type': 'string'}}, 'required': ['coordinates']}}
+    ],
+    'responses': {
+        200: {'description': 'Water stress map URL'},
+        400: {'description': 'Coordinates are required'}
+    }
+})
 def water_stress_map():
     data = request.json
     coordinates = data.get('coordinates')
@@ -123,6 +171,16 @@ def water_stress_map():
 
 @field_bp.route('/crop-growth', methods=['POST'])
 @require_api_key
+@swag_from({
+    'tags': ['Maps'],
+    'parameters': [
+        {'name': 'body', 'in': 'body', 'required': True, 'schema': {'type': 'object', 'properties': {'coordinates': {'type': 'array'}, 'field_id': {'type': 'string'}}, 'required': ['coordinates']}}
+    ],
+    'responses': {
+        200: {'description': 'Crop growth map URL'},
+        400: {'description': 'Coordinates are required'}
+    }
+})
 def crop_growth_map():
     data = request.json
     coordinates = data.get('coordinates')
@@ -146,6 +204,16 @@ def crop_growth_map():
 
 @field_bp.route('/disease-pest', methods=['POST'])
 @require_api_key
+@swag_from({
+    'tags': ['Maps'],
+    'parameters': [
+        {'name': 'body', 'in': 'body', 'required': True, 'schema': {'type': 'object', 'properties': {'coordinates': {'type': 'array'}, 'field_id': {'type': 'string'}}, 'required': ['coordinates']}}
+    ],
+    'responses': {
+        200: {'description': 'Disease/pest NDVI anomaly map URL'},
+        400: {'description': 'Coordinates are required'}
+    }
+})
 def disease_pest_map():
     data = request.json
     coordinates = data.get('coordinates')
