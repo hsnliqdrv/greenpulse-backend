@@ -3,12 +3,19 @@ from services import EarthEngineService, AIAssistantService, ReportService
 from datetime import datetime, timedelta
 from auth import require_api_key
 from flasgger import swag_from
+import json
+import hashlib
 
 MAP_CACHE = {}
 TOKEN_LIFETIME_HOURS = 1
 
-def get_cached_map(field_id, map_type):
-    key = (field_id, map_type)
+def _coords_hash(coords):
+    """Generate a consistent hash from coordinates."""
+    coords_str = json.dumps(coords, sort_keys=True)
+    return hashlib.md5(coords_str.encode('utf-8')).hexdigest()
+
+def get_cached_map(field_id, map_type, coordinates):
+    key = (field_id, map_type, _coords_hash(coordinates))
     entry = MAP_CACHE.get(key)
     if entry:
         age = (datetime.now() - entry['created']).total_seconds() / 3600
@@ -18,8 +25,9 @@ def get_cached_map(field_id, map_type):
             del MAP_CACHE[key]
     return None
 
-def cache_map(field_id, map_type, mapid, token):
-    MAP_CACHE[(field_id, map_type)] = {
+def cache_map(field_id, map_type, coordinates, mapid, token):
+    key = (field_id, map_type, _coords_hash(coordinates))
+    MAP_CACHE[key] = {
         'mapid': mapid,
         'token': token,
         'created': datetime.now()
@@ -30,6 +38,23 @@ ee_service = EarthEngineService()
 ai_service = AIAssistantService()
 report_service = ReportService()
 
+def _generate_map_url(field_id, map_type, coordinates, image_func, vis):
+    cached = get_cached_map(field_id, map_type, coordinates)
+    if cached:
+        mapid = cached['mapid']
+        token = cached.get('token')
+        base_url = f"https://earthengine.googleapis.com/v1alpha/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
+        return f"{base_url}?token={token}" if token else base_url
+
+    geometry = ee_service.get_field_bounds(coordinates)
+    image = image_func(geometry)
+    map_id = image.getMapId(vis)
+    mapid = map_id['mapid']
+    token = map_id.get('token')
+    cache_map(field_id, map_type, coordinates, mapid, token)
+
+    base_url = f"https://earthengine.googleapis.com/v1alpha/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
+    return f"{base_url}?token={token}" if token else base_url
 
 @field_bp.route('/health', methods=['GET'])
 @swag_from({
@@ -62,7 +87,7 @@ def _generate_map_url(field_id, map_type, coordinates, image_func, vis):
     if cached:
         mapid = cached['mapid']
         token = cached.get('token')
-        base_url = f"https://earthengine.googleapis.com/v1alpha/projects/greenpulse-backend/maps/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
+        base_url = f"https://earthengine.googleapis.com/v1alpha/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
         return f"{base_url}?token={token}" if token else base_url
 
     geometry = ee_service.get_field_bounds(coordinates)
@@ -72,7 +97,7 @@ def _generate_map_url(field_id, map_type, coordinates, image_func, vis):
     token = map_id.get('token')
     cache_map(field_id, map_type, mapid, token)
 
-    base_url = f"https://earthengine.googleapis.com/v1alpha/projects/greenpulse-backend/maps/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
+    base_url = f"https://earthengine.googleapis.com/v1alpha/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
     return f"{base_url}?token={token}" if token else base_url
 
 
