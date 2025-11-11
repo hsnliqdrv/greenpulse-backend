@@ -109,26 +109,6 @@ If `earth_engine_initialized` is `false`, check that:
 - You've run `earthengine authenticate`
 - `GEE_PROJECT_ID` is set correctly in Secrets
 
-#### Test with Real Data
-
-Try the full analysis endpoint with sample coordinates:
-
-```bash
-curl -X POST https://your-replit-url.replit.dev/api/full-analysis \
-  -H "Content-Type: application/json" \
-  -d '{
-    "coordinates": [
-      [
-        [-120.5, 37.0],
-        [-120.5, 37.05],
-        [-120.45, 37.05],
-        [-120.45, 37.0],
-        [-120.5, 37.0]
-      ]
-    ]
-  }'
-```
-
 ## Troubleshooting
 
 ### "GEE_PROJECT_ID not set" Warning
