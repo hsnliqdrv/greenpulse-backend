@@ -43,19 +43,29 @@ def health_check():
 
 def _generate_map_url(field_id, map_type, coordinates, image_func, vis):
     """
-    Generate a map tile URL with Earth Engine mapid and token.
+    Generate a map tile URL with Earth Engine mapid and optional token.
     Returns only the URL string.
     """
     cached = get_cached_map(field_id, map_type)
     if cached:
-        return f"https://earthengine.googleapis.com/map/{cached['mapid']}/{{z}}/{{x}}/{{y}}?token={cached['token']}"
+        mapid = cached['mapid']
+        token = cached.get('token')
+        if token:
+            return f"https://earthengine.googleapis.com/map/{mapid}/{{z}}/{{x}}/{{y}}?token={token}"
+        else:
+            return f"https://earthengine.googleapis.com/map/{mapid}/{{z}}/{{x}}/{{y}}"
 
     geometry = ee_service.get_field_bounds(coordinates)
     image = image_func(geometry)
     map_id = image.getMapId(vis)
-    cache_map(field_id, map_type, map_id['mapid'], map_id['token'])
+    cache_map(field_id, map_type, map_id['mapid'], map_id.get('token'))
 
-    return f"https://earthengine.googleapis.com/map/{map_id['mapid']}/{{z}}/{{x}}/{{y}}?token={map_id['token']}"
+    mapid = map_id['mapid']
+    token = map_id.get('token')
+    if token:
+        return f"https://earthengine.googleapis.com/map/{mapid}/{{z}}/{{x}}/{{y}}?token={token}"
+    else:
+        return f"https://earthengine.googleapis.com/map/{mapid}/{{z}}/{{x}}/{{y}}"
 
 
 def _default_dates():
