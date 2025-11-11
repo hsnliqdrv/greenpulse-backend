@@ -82,25 +82,6 @@ def health_check():
     })
 
 
-def _generate_map_url(field_id, map_type, coordinates, image_func, vis):
-    cached = get_cached_map(field_id, map_type, coordinates)
-    if cached:
-        mapid = cached['mapid']
-        token = cached.get('token')
-        base_url = f"https://earthengine.googleapis.com/v1alpha/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
-        return f"{base_url}?token={token}" if token else base_url
-
-    geometry = ee_service.get_field_bounds(coordinates)
-    image = image_func(geometry)
-    map_id = image.getMapId(vis)
-    mapid = map_id['mapid']
-    token = map_id.get('token')
-    cache_map(field_id, map_type, mapid, token)
-
-    base_url = f"https://earthengine.googleapis.com/v1alpha/{mapid}/tiles/{{z}}/{{x}}/{{y}}"
-    return f"{base_url}?token={token}" if token else base_url
-
-
 def _default_dates():
     end_date = datetime.now().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
