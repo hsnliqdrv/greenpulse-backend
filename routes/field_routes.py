@@ -41,20 +41,21 @@ def health_check():
     })
 
 
-def _generate_map_response(field_id, map_type, coordinates, image_func, vis):
+def _generate_map_url(field_id, map_type, coordinates, image_func, vis):
+    """
+    Generate a map tile URL with Earth Engine mapid and token.
+    Returns only the URL string.
+    """
     cached = get_cached_map(field_id, map_type)
     if cached:
-        return jsonify({
-            "tile_url": f"https://earthengine.googleapis.com/map/{cached['mapid']}/{{z}}/{{x}}/{{y}}?token={cached['token']}",
-            "cached": True,
-            "note": "Using cached token (still valid)."
-        })
+        return f"https://earthengine.googleapis.com/map/{cached['mapid']}/{{z}}/{{x}}/{{y}}?token={cached['token']}"
+
     geometry = ee_service.get_field_bounds(coordinates)
     image = image_func(geometry)
     map_id = image.getMapId(vis)
     cache_map(field_id, map_type, map_id['mapid'], map_id['token'])
-    tile_url = f"https://earthengine.googleapis.com/map/{map_id['mapid']}/{{z}}/{{x}}/{{y}}?token={map_id['token']}"
-    return tile_url
+
+    return f"https://earthengine.googleapis.com/map/{map_id['mapid']}/{{z}}/{{x}}/{{y}}?token={map_id['token']}"
 
 
 def _default_dates():
@@ -79,10 +80,9 @@ def yield_prediction_map():
         return ee_service.calculate_ndvi(image)
 
     vis = {"min": 0, "max": 1, "palette": ["red", "yellow", "green"]}
-    tile_url = _generate_map_response(field_id, 'yield_prediction', coordinates, image_func, vis)
+    tile_url = _generate_map_url(field_id, 'yield_prediction', coordinates, image_func, vis)
     return jsonify({
         "tile_url": tile_url,
-        "cached": False,
         "description": "🌾 NDVI map: low (red), medium (yellow), high (green) productivity zones."
     })
 
@@ -104,10 +104,9 @@ def water_stress_map():
         return ndmi
 
     vis = {"min": -1, "max": 1, "palette": ["brown", "yellow", "blue"]}
-    tile_url = _generate_map_response(field_id, 'water_stress', coordinates, image_func, vis)
+    tile_url = _generate_map_url(field_id, 'water_stress', coordinates, image_func, vis)
     return jsonify({
         "tile_url": tile_url,
-        "cached": False,
         "description": "💧 NDMI map showing dry (brown) and moist (blue) areas."
     })
 
@@ -128,10 +127,9 @@ def crop_growth_map():
         return ee_service.calculate_ndvi(image)
 
     vis = {"min": 0, "max": 1, "palette": ["white", "green"]}
-    tile_url = _generate_map_response(field_id, 'crop_growth', coordinates, image_func, vis)
+    tile_url = _generate_map_url(field_id, 'crop_growth', coordinates, image_func, vis)
     return jsonify({
         "tile_url": tile_url,
-        "cached": False,
         "description": "📈 NDVI map to monitor crop development over time."
     })
 
@@ -159,9 +157,8 @@ def disease_pest_map():
         return anomaly
 
     vis = {"min": -0.2, "max": 0.2, "palette": ["red", "white", "green"]}
-    tile_url = _generate_map_response(field_id, 'disease_pest', coordinates, image_func, vis)
+    tile_url = _generate_map_url(field_id, 'disease_pest', coordinates, image_func, vis)
     return jsonify({
         "tile_url": tile_url,
-        "cached": False,
         "description": "🐛 NDVI anomaly map showing abnormal vegetation (potential disease/pests)."
     })
