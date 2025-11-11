@@ -32,26 +32,6 @@ report_service = ReportService()
 
 @field_bp.route('/health', methods=['GET'])
 def health_check():
-    """
-    Health check endpoint.
-    ---
-    tags:
-      - System
-    responses:
-      200:
-        description: Service health status
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-              example: "healthy"
-            service:
-              type: string
-              example: "GreenPulse Backend"
-            earth_engine_initialized:
-              type: boolean
-    """
     app_ee_service = current_app.config.get('ee_service')
     is_initialized = app_ee_service.initialized if app_ee_service else ee_service.initialized
     return jsonify({
@@ -77,47 +57,22 @@ def _generate_map_response(field_id, map_type, coordinates, image_func, vis):
     return tile_url
 
 
+def _default_dates():
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+    return start_date, end_date
+
+
 @field_bp.route('/yield-prediction', methods=['POST'])
 @require_api_key
 def yield_prediction_map():
-    """
-    Generate NDVI map for yield prediction.
-    ---
-    tags:
-      - Field Analysis
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          required: [coordinates, start_date, end_date]
-          properties:
-            coordinates:
-              type: array
-              example: [[-120.5,37.0], [-120.5,37.05], [-120.45,37.05], [-120.45,37.0], [-120.5,37.0]]
-            field_id:
-              type: string
-              example: "field1"
-            start_date:
-              type: string
-              format: date
-              example: "2025-10-01"
-            end_date:
-              type: string
-              format: date
-              example: "2025-10-31"
-    responses:
-      200:
-        description: Map tile URL
-    """
     data = request.json
     coordinates = data.get('coordinates')
     field_id = data.get('field_id', 'default')
-    start_date = data.get('start_date')
-    end_date = data.get('end_date')
-    if not coordinates or not start_date or not end_date:
-        return jsonify({'error': 'Coordinates, start_date, and end_date are required'}), 400
+    if not coordinates:
+        return jsonify({'error': 'Coordinates are required'}), 400
+
+    start_date, end_date = _default_dates()
 
     def image_func(geom):
         image = ee_service.get_sentinel2_image(geom, start_date, end_date)
@@ -135,40 +90,13 @@ def yield_prediction_map():
 @field_bp.route('/water-stress', methods=['POST'])
 @require_api_key
 def water_stress_map():
-    """
-    Generate NDMI map for water stress.
-    ---
-    tags:
-      - Field Analysis
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          required: [coordinates, start_date, end_date]
-          properties:
-            coordinates:
-              type: array
-            field_id:
-              type: string
-            start_date:
-              type: string
-              format: date
-            end_date:
-              type: string
-              format: date
-    responses:
-      200:
-        description: Map tile URL
-    """
     data = request.json
     coordinates = data.get('coordinates')
     field_id = data.get('field_id', 'default')
-    start_date = data.get('start_date')
-    end_date = data.get('end_date')
-    if not coordinates or not start_date or not end_date:
-        return jsonify({'error': 'Coordinates, start_date, and end_date are required'}), 400
+    if not coordinates:
+        return jsonify({'error': 'Coordinates are required'}), 400
+
+    start_date, end_date = _default_dates()
 
     def image_func(geom):
         image = ee_service.get_sentinel2_image(geom, start_date, end_date)
@@ -187,40 +115,13 @@ def water_stress_map():
 @field_bp.route('/crop-growth', methods=['POST'])
 @require_api_key
 def crop_growth_map():
-    """
-    Generate NDVI time series map for crop growth.
-    ---
-    tags:
-      - Field Analysis
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          required: [coordinates, start_date, end_date]
-          properties:
-            coordinates:
-              type: array
-            field_id:
-              type: string
-            start_date:
-              type: string
-              format: date
-            end_date:
-              type: string
-              format: date
-    responses:
-      200:
-        description: Map tile URL
-    """
     data = request.json
     coordinates = data.get('coordinates')
     field_id = data.get('field_id', 'default')
-    start_date = data.get('start_date')
-    end_date = data.get('end_date')
-    if not coordinates or not start_date or not end_date:
-        return jsonify({'error': 'Coordinates, start_date, and end_date are required'}), 400
+    if not coordinates:
+        return jsonify({'error': 'Coordinates are required'}), 400
+
+    start_date, end_date = _default_dates()
 
     def image_func(geom):
         image = ee_service.get_sentinel2_image(geom, start_date, end_date)
@@ -238,40 +139,13 @@ def crop_growth_map():
 @field_bp.route('/disease-pest', methods=['POST'])
 @require_api_key
 def disease_pest_map():
-    """
-    Generate NDVI anomaly map for disease/pest detection.
-    ---
-    tags:
-      - Field Analysis
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          required: [coordinates, start_date, end_date]
-          properties:
-            coordinates:
-              type: array
-            field_id:
-              type: string
-            start_date:
-              type: string
-              format: date
-            end_date:
-              type: string
-              format: date
-    responses:
-      200:
-        description: Map tile URL
-    """
     data = request.json
     coordinates = data.get('coordinates')
     field_id = data.get('field_id', 'default')
-    start_date = data.get('start_date')
-    end_date = data.get('end_date')
-    if not coordinates or not start_date or not end_date:
-        return jsonify({'error': 'Coordinates, start_date, and end_date are required'}), 400
+    if not coordinates:
+        return jsonify({'error': 'Coordinates are required'}), 400
+
+    start_date, end_date = _default_dates()
 
     def image_func(geom):
         image = ee_service.get_sentinel2_image(geom, start_date, end_date)
@@ -291,9 +165,3 @@ def disease_pest_map():
         "cached": False,
         "description": "🐛 NDVI anomaly map showing abnormal vegetation (potential disease/pests)."
     })
-
-
-# Other endpoints like /historical-comparison, /ai-assistant, /report, /full-analysis
-# can be updated similarly: adding start_date and end_date where required, generating Swagger docs,
-# and returning tile URLs instead of actual image data.
-
