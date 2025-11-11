@@ -83,7 +83,7 @@ def health_check():
 
 
 def _generate_map_url(field_id, map_type, coordinates, image_func, vis):
-    cached = get_cached_map(field_id, map_type)
+    cached = get_cached_map(field_id, map_type, coordinates)
     if cached:
         mapid = cached['mapid']
         token = cached.get('token')
